@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  bctg:
+    image: ghcr.io/sabjorn/bctg:v0.0.1
+    volumes:
+      - bctg-data:/app/data
+    networks:
+      - web
+    environment:
+      - DATABASE_URL=sqlite:///app/data/basscoast.db
+      - SERVER_PORT=3000
+      - RUST_LOG=info
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.bctg.rule=Host(`thegathering.bjornsoft.com`)"
+      - "traefik.http.routers.bctg.entrypoints=websecure"
+      - "traefik.http.routers.bctg.tls.certresolver=letsencrypt"
+      - "traefik.http.services.bctg.loadbalancer.server.port=3000"
+      - "traefik.docker.network=web"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  web:
+    external: true
+
+volumes:
+  bctg-data:
+    driver: local

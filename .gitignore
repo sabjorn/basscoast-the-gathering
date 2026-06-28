@@ -1,0 +1,25 @@
+# Rust build artifacts
+/target/
+
+# SQLite database
+*.db
+*.db-shm
+*.db-wal
+
+# Environment variables
+.env
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Archive directories (old Python project data)
+original-project

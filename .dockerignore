@@ -1,0 +1,34 @@
+# Git
+.git
+.gitignore
+
+# Build artifacts
+target/
+*.db
+*.db-shm
+*.db-wal
+
+# Include data/*.json files (needed for initial import)
+!data/*.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Env files
+.env
+.env.local
+
+# Documentation (keep DOCKER.md in image)
+README.md
+
+# Tests
+tests/
+
+# CI/CD
+.github/
+
+# Archive directories from old Python project
+original-project
