@@ -251,10 +251,10 @@ pub async fn artist_detail(
         html.push_str(&format!(
             r#"<div class="metadata-field" data-field-name="{}">
                 <label>{}</label>
-                <input type="text" class="metadata-input" data-field="{}" value="{}">
+                <input type="text" class="metadata-input" data-field="{}" value="{}" data-original-value="{}">
                 {}
             </div>"#,
-            key, key, key, display_value.replace('"', "&quot;"), delete_button
+            key, key, key, display_value.replace('"', "&quot;"), display_value.replace('"', "&quot;"), delete_button
         ));
     }
 
@@ -427,10 +427,10 @@ pub async fn artist_detail(
             const nameInput = document.getElementById('artist-name-input');
             const originalName = document.querySelector('.artist-info').dataset.originalName;
 
-            // Store original metadata values
+            // Store original metadata values from data attributes (set server-side)
             const originalMetadata = {{}};
             document.querySelectorAll('.metadata-input').forEach(input => {{
-                originalMetadata[input.dataset.field] = input.value.trim();
+                originalMetadata[input.dataset.field] = input.dataset.originalValue || '';
             }});
 
             window.checkForChanges = function() {{
