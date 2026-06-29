@@ -416,6 +416,10 @@ pub async fn artist_detail(
                             }}
                         }}
                     }}, 100); // Check every 100ms, max 5 seconds
+                }} else if (window.viewer) {{
+                    // No saved card - clear the viewer
+                    console.log('No saved card for this artist, clearing viewer');
+                    window.viewer.clearCard();
                 }}
 
                 // Track changes and enable/disable save button

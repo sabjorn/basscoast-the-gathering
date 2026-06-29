@@ -35,6 +35,7 @@ class CardViewer {
     init() {
         // Setup renderer
         this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
+        this.renderer.setPixelRatio(window.devicePixelRatio);
         this.renderer.setClearColor(0x000000, 0);
         this.container.appendChild(this.renderer.domElement);
 
@@ -264,6 +265,25 @@ class CardViewer {
         }
     }
 
+    clearCard() {
+        // Clear the current card
+        this.currentCardId = null;
+        this.currentArtistId = null;
+
+        // Reset front material to default gray
+        if (this.frontMaterial.map) {
+            this.frontMaterial.map.dispose(); // Free texture memory
+            this.frontMaterial.map = null;
+        }
+        this.frontMaterial.color.setHex(0x333333);
+        this.frontMaterial.needsUpdate = true;
+
+        // Reset rotation to show front
+        this.card.rotation.set(0, 0, 0);
+
+        console.log('Card viewer cleared');
+    }
+
     animate() {
         requestAnimationFrame(() => this.animate());
 
@@ -310,6 +330,7 @@ class CardViewer {
         this.camera.aspect = width / height;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(width, height);
+        this.renderer.setPixelRatio(window.devicePixelRatio);
     }
 }
 
