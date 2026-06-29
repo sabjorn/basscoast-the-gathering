@@ -4,23 +4,32 @@ FROM rust:1.96-bookworm AS builder
 
 WORKDIR /app
 
-# Install SQLx CLI for migrations
+# Install SQLx CLI for migrations (cached unless Rust version changes)
 RUN cargo install sqlx-cli --no-default-features --features sqlite
 
-# Copy manifests
+# Copy manifests first for dependency caching
 COPY Cargo.toml Cargo.lock ./
 
-# Copy source code
+# Create dummy source to build dependencies
+RUN mkdir src && \
+    echo "fn main() {}" > src/main.rs
+
+# Build dependencies only (this layer gets cached)
+RUN cargo build --release --bin bctg
+
+# Remove dummy source
+RUN rm -rf src
+
+# Now copy real source code
 COPY src ./src
 COPY migrations ./migrations
 COPY static ./static
 
 # Create temporary database and run migrations for SQLx compile-time verification
 ENV DATABASE_URL=sqlite:///tmp/build.db
-RUN sqlx database create
-RUN sqlx migrate run
+RUN sqlx database create && sqlx migrate run
 
-# Build for release (both binaries)
+# Build for release (both binaries) - only this rebuilds when code changes
 RUN cargo build --release --bin bctg
 RUN cargo build --release --bin import-json
 
