@@ -253,8 +253,7 @@ pub async fn app_page(cookies: Cookies) -> impl IntoResponse {
                 // Check for unsaved changes
                 const saveButton = document.getElementById('save-changes');
                 if (saveButton && !saveButton.disabled) {
-                    const confirmMsg = 'You have unsaved changes. What would you like to do?';
-                    const choice = confirm(confirmMsg + '\\n\\nOK = Save changes\\nCancel = Discard changes');
+                    const choice = confirm('You have unsaved changes. Click OK to save them, or Cancel to discard.');
 
                     if (choice) {
                         // Save and navigate
