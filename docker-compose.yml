@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   bctg:
-    image: ghcr.io/sabjorn/bctg:v0.0.3
+    image: ghcr.io/sabjorn/bctg:v0.0.4
     volumes:
       - bctg-data:/app/data
     networks:
