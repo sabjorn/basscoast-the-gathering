@@ -22,12 +22,18 @@ class CardViewer {
 
         this.card = null;
         this.reflection = null;
-        this.autoRotate = false;
         this.isDragging = false;
         this.previousMouseX = 0;
 
         this.currentArtistId = null;
         this.currentCardId = null;
+
+        // Load auto-rotate setting from localStorage (user-specific), default to true
+        const userId = window.currentUserId || 'default';
+        const rotateKey = `cardAutoRotate_${userId}`;
+        const savedRotateSetting = localStorage.getItem(rotateKey);
+        this.autoRotate = savedRotateSetting !== null ? savedRotateSetting === 'true' : true;
+        this.rotateKey = rotateKey; // Store for later use
 
         this.init();
     }
@@ -252,6 +258,12 @@ class CardViewer {
                     // Reset rotation to show front face
                     this.card.rotation.set(0, 0, 0);
 
+                    // Hide the empty state message when card is loaded
+                    const emptyState = document.querySelector('.card-empty-state');
+                    if (emptyState) {
+                        emptyState.style.display = 'none';
+                    }
+
                     console.log('Card front loaded:', cardData.name);
                 },
                 undefined,
@@ -281,6 +293,9 @@ class CardViewer {
         // Reset rotation to show front
         this.card.rotation.set(0, 0, 0);
 
+        // Don't show empty state - it's managed by the artist detail script
+        // which handles the "show once" logic per user
+
         console.log('Card viewer cleared');
     }
 
@@ -297,6 +312,10 @@ class CardViewer {
 
     toggleRotation() {
         this.autoRotate = !this.autoRotate;
+
+        // Save setting to localStorage (user-specific)
+        localStorage.setItem(this.rotateKey, this.autoRotate.toString());
+
         const toggleButton = document.getElementById('toggle-rotation');
         if (toggleButton) {
             toggleButton.textContent = this.autoRotate ? 'Pause' : 'Play';
@@ -369,6 +388,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Setup toggle button
     const toggleButton = document.getElementById('toggle-rotation');
     if (toggleButton) {
+        // Set initial button text based on current state
+        toggleButton.textContent = viewer.autoRotate ? 'Pause' : 'Play';
+
         toggleButton.addEventListener('click', () => {
             if (viewer) {
                 viewer.toggleRotation();

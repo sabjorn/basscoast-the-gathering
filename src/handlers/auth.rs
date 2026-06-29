@@ -90,15 +90,44 @@ pub async fn app_page(cookies: Cookies) -> impl IntoResponse {
 </head>
 <body>
     <div class="app-container">
+        <!-- Welcome Modal -->
+        <div id="welcome-modal" class="modal-overlay">
+            <div class="modal-content">
+                <h2>Welcome to Bass Coast: The Gathering! 🎵✨</h2>
+                <p>Create your personalized artist collection by selecting Magic: The Gathering cards that represent each musician.</p>
+
+                <div class="welcome-steps">
+                    <div class="welcome-step">
+                        <span class="step-number">1</span>
+                        <div class="step-text">
+                            <strong>Select an Artist</strong>
+                            <p>Choose from the dropdown in the left panel</p>
+                        </div>
+                    </div>
+                    <div class="welcome-step">
+                        <span class="step-number">2</span>
+                        <div class="step-text">
+                            <strong>Pick a Card</strong>
+                            <p>Browse recommendations or search for the perfect card</p>
+                        </div>
+                    </div>
+                    <div class="welcome-step">
+                        <span class="step-number">3</span>
+                        <div class="step-text">
+                            <strong>Save & Repeat</strong>
+                            <p>Your selections are saved automatically</p>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="get-started-btn" class="primary-button">Get Started</button>
+                <p class="modal-hint">Tip: Use ← → arrow keys or swipe to navigate between artists</p>
+            </div>
+        </div>
+
         <header>
             <div class="header-left">
                 <h1>Bass Coast: The Gathering</h1>
-            </div>
-            <div class="artist-selector">
-                <label for="artist-select">Select Artist:</label>
-                <select id="artist-select">
-                    <option value="">Choose an artist...</option>
-                </select>
             </div>
             <div class="header-right">
                 <button id="logout-button" class="logout-button">Logout</button>
@@ -106,8 +135,23 @@ pub async fn app_page(cookies: Cookies) -> impl IntoResponse {
         </header>
 
         <main>
-            <div class="left-panel" id="artist-detail">
-                <p>Select an artist to begin</p>
+            <div class="left-panel">
+                <div class="artist-selector">
+                    <label for="artist-select">Select Artist:</label>
+                    <select id="artist-select">
+                        <option value="">Choose an artist...</option>
+                    </select>
+                </div>
+                <div id="artist-detail">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🎵</div>
+                        <h3>Ready to Start?</h3>
+                        <p>Select an artist from the dropdown above to begin building your collection.</p>
+                        <div class="empty-state-hint">
+                            👆 Click the dropdown to see all artists
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="right-panel">
@@ -127,22 +171,76 @@ pub async fn app_page(cookies: Cookies) -> impl IntoResponse {
         </main>
     </div>
 
+    <script>
+        // Helper function to get cookie value
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+            return null;
+        }
+
+        // Set global user ID for use by other scripts (like card-viewer.js)
+        window.currentUserId = getCookie('user_id');
+    </script>
+
     <script src="/static/js/card-viewer.js"></script>
 
     <script>
+
+        // Welcome Modal - show on first visit per user
+        (function() {
+            const userId = getCookie('user_id');
+            if (!userId) {
+                console.warn('No user_id cookie found');
+                return;
+            }
+
+            const welcomeKey = `basscoast_has_seen_welcome_${userId}`;
+            const hasSeenWelcome = localStorage.getItem(welcomeKey);
+            const modal = document.getElementById('welcome-modal');
+
+            if (!hasSeenWelcome) {
+                modal.style.display = 'flex';
+            }
+
+            document.getElementById('get-started-btn').addEventListener('click', function() {
+                localStorage.setItem(welcomeKey, 'true');
+                modal.style.display = 'none';
+            });
+
+            // Allow clicking overlay to close
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    localStorage.setItem(welcomeKey, 'true');
+                    modal.style.display = 'none';
+                }
+            });
+        })();
+
         // Stub checkForChanges to prevent errors if called before artist loads
         window.checkForChanges = function() {
             console.debug('checkForChanges stub called (no artist loaded yet)');
         };
 
-        // LocalStorage helpers
-        const STORAGE_KEYS = {
+        // Get user ID for user-specific localStorage keys
+        const userId = getCookie('user_id');
+
+        // LocalStorage helpers - all user-specific (if userId available)
+        const STORAGE_KEYS = userId ? {
+            SELECTED_ARTIST: `basscoast_selected_artist_${userId}`,
+            ROTATION_STATE: `basscoast_rotation_state_${userId}`
+        } : {
             SELECTED_ARTIST: 'basscoast_selected_artist',
             ROTATION_STATE: 'basscoast_rotation_state'
         };
 
-        // Clean up old localStorage key (no longer used)
+        // Clean up old localStorage keys (now all user-specific)
         localStorage.removeItem('basscoast_selected_artist_name');
+        localStorage.removeItem('basscoast_has_seen_welcome');
+        localStorage.removeItem('basscoast_selected_artist');
+        localStorage.removeItem('basscoast_rotation_state');
+        localStorage.removeItem('cardAutoRotate');
 
         let artistMap = new Map(); // Map of artist name -> artist id
         let artistIdToNameMap = new Map(); // Map of artist id -> current name (including renames)
@@ -203,8 +301,16 @@ pub async fn app_page(cookies: Cookies) -> impl IntoResponse {
         // Handle artist selection from dropdown
         document.getElementById('artist-select').addEventListener('change', function(e) {
             const artistId = e.target.value;
+            const artistSelector = document.querySelector('.artist-selector');
 
             if (artistId) {
+                // Remove pulse hint when artist is selected
+                artistSelector.classList.remove('pulse-hint');
+
+                // Mark that user has learned to use the selector (show guidance once only)
+                const hasUsedKey = `basscoast_has_used_artist_selector_${userId}`;
+                localStorage.setItem(hasUsedKey, 'true');
+
                 // Save to localStorage
                 localStorage.setItem(STORAGE_KEYS.SELECTED_ARTIST, artistId);
 
@@ -216,6 +322,18 @@ pub async fn app_page(cookies: Cookies) -> impl IntoResponse {
                     target: '#artist-detail',
                     swap: 'innerHTML'
                 });
+            }
+        });
+
+        // Add pulse hint on page load if user hasn't used selector before
+        window.addEventListener('load', function() {
+            const select = document.getElementById('artist-select');
+            const artistSelector = document.querySelector('.artist-selector');
+            const hasUsedKey = `basscoast_has_used_artist_selector_${userId}`;
+            const hasUsedBefore = localStorage.getItem(hasUsedKey);
+
+            if (select && artistSelector && !select.value && !hasUsedBefore) {
+                artistSelector.classList.add('pulse-hint');
             }
         });
 
@@ -351,10 +469,8 @@ pub async fn app_page(cookies: Cookies) -> impl IntoResponse {
         // Logout button
         document.getElementById('logout-button')?.addEventListener('click', () => {
             if (confirm('Are you sure you want to logout?')) {
-                // Clear localStorage
-                localStorage.clear();
-
-                // Redirect to logout endpoint
+                // No need to clear localStorage - data is user-specific via user_id
+                // When user logs back in, their data will be loaded automatically
                 window.location.href = '/logout';
             }
         });

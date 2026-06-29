@@ -154,6 +154,16 @@ pub async fn artist_detail(
         .map(|c| c.scryfall_id.as_str())
         .unwrap_or("");
 
+    // Build appearances table HTML
+    let mut appearances_html = String::from(r#"<h3>Appearances</h3><table><thead><tr><th>Year</th></tr></thead><tbody>"#);
+    for app in &appearances {
+        appearances_html.push_str(&format!(
+            "<tr><td>{}</td></tr>",
+            app.year
+        ));
+    }
+    appearances_html.push_str("</tbody></table>");
+
     let mut html = format!(
         r##"<div class="artist-info" data-artist-id="{}" data-original-name="{}" data-saved-card="{}">
             <div class="save-section">
@@ -164,34 +174,13 @@ pub async fn artist_detail(
 
             <!-- Mobile Tabs -->
             <div class="mobile-tabs">
-                <button class="tab-button active" data-tab="info">Info</button>
+                <button class="tab-button active" data-tab="search">Card</button>
+                <button class="tab-button" data-tab="info">Info</button>
                 <button class="tab-button" data-tab="metadata">Metadata</button>
-                <button class="tab-button" data-tab="search">Card</button>
             </div>
-
-            <!-- Tab Content: Info -->
-            <div class="tab-content active" data-tab-content="info">
-                <h2>Artist Details</h2>
-                <input type="text"
-                       id="artist-name-input"
-                       value="{}"
-                       placeholder="Artist name">
         "##,
-        artist.id, display_name, saved_card_id, display_name
+        artist.id, display_name, saved_card_id
     );
-
-    // Appearances - just show years
-    html.push_str(r#"<h3>Appearances</h3><table><thead><tr><th>Year</th></tr></thead><tbody>"#);
-
-    for app in &appearances {
-        html.push_str(&format!(
-            "<tr><td>{}</td></tr>",
-            app.year
-        ));
-    }
-
-    html.push_str("</tbody></table>");
-    html.push_str("</div>"); // Close info tab
 
     // Metadata - merge base metadata with user metadata
     let mut metadata_map = std::collections::HashMap::new();
@@ -220,8 +209,8 @@ pub async fn artist_detail(
     // Track base metadata fields (can't be deleted)
     let base_fields = ["tags", "location"];
 
-    // Display editable metadata
-    html.push_str(r#"
+    // Build metadata section HTML
+    let mut metadata_html = String::from(r#"
             <!-- Tab Content: Metadata -->
             <div class="tab-content" data-tab-content="metadata">
                 <h3>Metadata</h3>
@@ -248,7 +237,7 @@ pub async fn artist_detail(
             value.clone()
         };
 
-        html.push_str(&format!(
+        metadata_html.push_str(&format!(
             r#"<div class="metadata-field" data-field-name="{}">
                 <label>{}</label>
                 <input type="text" class="metadata-input" data-field="{}" value="{}" data-original-value="{}">
@@ -259,7 +248,7 @@ pub async fn artist_detail(
     }
 
     // Add new field section
-    html.push_str(r#"
+    metadata_html.push_str(r#"
         <div class="metadata-new-field">
             <h4>Add Custom Field</h4>
             <div class="metadata-new-field-row">
@@ -271,11 +260,29 @@ pub async fn artist_detail(
                 </div>
             </div><!-- Close metadata tab -->"#);
 
-    // MTG recommendations and search
-    html.push_str(&format!(
+    // Build empty state message for Card tab if no saved card
+    // Note: Client-side JS will hide this after first view per user
+    let card_empty_state = if saved_card_id.is_empty() {
+        r#"
+                <div class="card-empty-state" id="card-empty-state">
+                    <div class="empty-state-icon">🃏</div>
+                    <h4>No Card Selected Yet</h4>
+                    <p>Browse the community picks below or use the search filters to find the perfect card for this artist.</p>
+                    <div class="empty-state-hint">
+                        ⬇️ Start by checking out the recommendations
+                    </div>
+                </div>
+        "#
+    } else {
+        ""
+    };
+
+    // Build Card section HTML (will be added first)
+    let card_html = format!(
         r##"
             <!-- Tab Content: Card -->
-            <div class="tab-content" data-tab-content="search">
+            <div class="tab-content active" data-tab-content="search">
+                {}
                 <div class="mtg-section">
                     <h3>Community Picks</h3>
                     <div hx-get="/artists/{}/mtg/recommendations"
@@ -290,6 +297,7 @@ pub async fn artist_detail(
             </div>
 
             <h3>Search All Cards</h3>
+            <p class="section-description">Use the filters below to find cards that match this artist's vibe.</p>
             <form id="mtg-search-form" class="mtg-filters"
                   hx-get="/mtg/search"
                   hx-target="#search-results"
@@ -361,10 +369,7 @@ pub async fn artist_detail(
                 </div>
 
                 <div class="filter-group">
-                    <label>
-                        Card Name or Text:
-                        <span class="search-help-icon" title="Search examples:&#10;• 'lightning bolt' - searches all text&#10;• 'name:jace' - card names only&#10;• 'o:draw' or 'oracle:draw' - rules text&#10;• 't:creature' - creature cards&#10;• 'o:destroy o:target' - cards with both words">ⓘ</span>
-                    </label>
+                    <label>Card Name or Text:</label>
                     <input type="text" name="q" id="card-search-input" placeholder="e.g., lightning bolt, o:draw, t:creature">
                 </div>
 
@@ -393,7 +398,6 @@ pub async fn artist_detail(
             </script>
 
             <div id="search-results" class="card-search-results">
-                <p>Enter search criteria to find cards</p>
             </div>
 
             <script>
@@ -420,6 +424,24 @@ pub async fn artist_detail(
                     // No saved card - clear the viewer
                     console.log('No saved card for this artist, clearing viewer');
                     window.viewer.clearCard();
+
+                    // Handle card empty state guidance (show once per user)
+                    const userId = window.currentUserId;
+                    if (userId) {{
+                        const hasSeenKey = `basscoast_has_seen_card_empty_state_${{userId}}`;
+                        const hasSeen = localStorage.getItem(hasSeenKey);
+                        const emptyState = document.getElementById('card-empty-state');
+
+                        if (emptyState) {{
+                            if (hasSeen) {{
+                                // User has seen this guidance before, hide it
+                                emptyState.style.display = 'none';
+                            }} else {{
+                                // First time seeing it, mark as seen
+                                localStorage.setItem(hasSeenKey, 'true');
+                            }}
+                        }}
+                    }}
                 }}
 
                 // Track changes and enable/disable save button
@@ -708,10 +730,36 @@ pub async fn artist_detail(
             </script>
                 </div><!-- Close mtg-section -->
             </div><!-- Close search tab -->
-        </div><!-- Close artist-info -->
         "##,
-        artist.id, artist.id
-    ));
+        card_empty_state, artist.id, artist.id
+    );
+
+    // Assemble sections in order: Card (first), Info, Metadata
+    html.push_str(&card_html);
+
+    // Add Info section
+    html.push_str(r#"
+            <!-- Tab Content: Info -->
+            <div class="tab-content" data-tab-content="info">
+                <h2>Artist Details</h2>
+                <p class="section-description">Customize the artist's name and view their performance history.</p>
+                <input type="text"
+                       id="artist-name-input"
+                       value=""#);
+    html.push_str(&format!(r#"{}"#, display_name));
+    html.push_str(r#""
+                       placeholder="Artist name">
+        "#);
+    html.push_str(&appearances_html);
+    html.push_str("</div>"); // Close info tab
+
+    // Add Metadata section
+    html.push_str(&metadata_html);
+
+    // Close artist-info div
+    html.push_str(r#"
+        </div><!-- Close artist-info -->
+    "#);
 
     Html(html).into_response()
 }
