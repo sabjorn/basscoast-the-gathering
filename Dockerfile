@@ -11,14 +11,18 @@ RUN cargo install sqlx-cli --no-default-features --features sqlite
 COPY Cargo.toml Cargo.lock ./
 
 # Create dummy source to build dependencies
-RUN mkdir src && \
-    echo "fn main() {}" > src/main.rs
+RUN mkdir -p src/migration && \
+    echo "fn main() {}" > src/main.rs && \
+    echo "fn main() {}" > src/migration/import_json.rs && \
+    echo "fn main() {}" > src/migration/enrich_metadata.rs
 
 # Build dependencies only (this layer gets cached)
-RUN cargo build --release --bin bctg
+RUN cargo build --release
 
-# Remove dummy source
-RUN rm -rf src
+# Remove dummy source and build artifacts to force clean rebuild
+# Keep target/release/deps (compiled dependencies) but remove everything else
+RUN rm -rf src && \
+    find target/release -mindepth 1 -maxdepth 1 ! -name deps -exec rm -rf {} +
 
 # Now copy real source code
 COPY src ./src
